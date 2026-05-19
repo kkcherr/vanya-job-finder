@@ -15,10 +15,8 @@ from bs4 import BeautifulSoup
 
 TELEGRAM_TOKEN = os.environ["TELEGRAM_BOT_TOKEN"]
 TELEGRAM_CHAT_ID = os.environ["TELEGRAM_CHAT_ID"]
-GOOGLE_API_KEY = os.environ.get("GOOGLE_API_KEY", "")
-GOOGLE_CSE_ID = os.environ.get("GOOGLE_CSE_ID", "")
 REED_API_KEY = os.environ.get("REED_API_KEY", "")
-BRAVE_API_KEY = os.environ.get("BRAVE_API_KEY", "")
+TAVILY_API_KEY = os.environ.get("TAVILY_API_KEY", "")
 SEEN_JOBS_FILE = "job_search/seen_jobs.json"
 MAX_SEEN_JOBS = 2000
 
@@ -291,41 +289,35 @@ def search_wellfound(query: str, search_type: str) -> list:
     return jobs
 
 
-def search_brave(query: str, search_type: str) -> list:
-    if not BRAVE_API_KEY:
+def search_tavily(query: str, search_type: str) -> list:
+    if not TAVILY_API_KEY:
         return []
     jobs = []
-    freshness = "pd" if DAYS_LOOKBACK == 1 else "pw" if DAYS_LOOKBACK <= 7 else "pm"
-    params = {
-        "q": f"{query} London job",
-        "count": 10,
-        "freshness": freshness,
-    }
-    headers = {
-        "Accept": "application/json",
-        "Accept-Encoding": "gzip",
-        "X-Subscription-Token": BRAVE_API_KEY,
-    }
     try:
-        resp = requests.get(
-            "https://api.search.brave.com/res/v1/web/search",
-            params=params,
-            headers=headers,
-            timeout=15,
+        resp = requests.post(
+            "https://api.tavily.com/search",
+            json={
+                "api_key": TAVILY_API_KEY,
+                "query": f"{query} London job",
+                "search_depth": "basic",
+                "max_results": 10,
+                "days": DAYS_LOOKBACK,
+            },
+            timeout=20,
         )
         if not resp.ok:
-            print(f"[Brave/{search_type}] Error {resp.status_code}: {resp.text[:300]}")
+            print(f"[Tavily/{search_type}] Error {resp.status_code}: {resp.text[:300]}")
             return jobs
-        for item in resp.json().get("web", {}).get("results", []):
+        for item in resp.json().get("results", []):
             title = item.get("title", "")
             url = item.get("url", "")
             if not url or not _title_is_relevant(title):
                 continue
             domain = url.split("/")[2].replace("www.", "") if "/" in url else "Unknown"
-            jobs.append(Job(title, domain, "London, UK", url, "Brave", search_type))
+            jobs.append(Job(title, domain, "London, UK", url, "Tavily", search_type))
     except Exception as e:
-        print(f"[Brave/{search_type}] Error: {e}")
-    print(f"[Brave/{search_type}] {len(jobs)} jobs")
+        print(f"[Tavily/{search_type}] Error: {e}")
+    print(f"[Tavily/{search_type}] {len(jobs)} jobs")
     return jobs
 
 
@@ -334,7 +326,7 @@ def collect_jobs() -> list:
     exact += search_reed("Corporate Development Associate", "Exact")
     exact += search_linkedin("Corporate Development Associate", "Exact")
     exact += search_greenhouse(EXACT_KEYWORDS, "Exact")
-    exact += search_brave('"Corporate Development Associate"', "Exact")
+    exact += search_tavily('"Corporate Development Associate"', "Exact")
 
     wide = []
     wide += search_reed("Investment Banking Associate", "Wide")
@@ -344,7 +336,7 @@ def collect_jobs() -> list:
         "Investment Banking Structured Finance Capital Markets", "Wide"
     )
     wide += search_greenhouse(WIDE_KEYWORDS, "Wide")
-    wide += search_brave('"Investment Banking" OR "Structured Finance" OR "Capital Markets"', "Wide")
+    wide += search_tavily('"Investment Banking" OR "Structured Finance" OR "Capital Markets"', "Wide")
 
     return exact + wide
 
