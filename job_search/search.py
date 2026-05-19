@@ -82,7 +82,7 @@ TITLE_MUST_CONTAIN = [
     "leveraged buyout",
 ]
 
-DAYS_LOOKBACK = 8  # change to 1 for daily mode
+DAYS_LOOKBACK = 7  # change to 1 for daily mode
 
 
 @dataclass
