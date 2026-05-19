@@ -104,7 +104,7 @@ def search_indeed(query: str, search_type: str) -> list:
     encoded = urllib.parse.quote(query)
     feed_url = (
         f"https://www.indeed.co.uk/rss?q={encoded}"
-        "&l=London&sort=date&fromage=1"
+        "&l=London&sort=date&fromage=8"
     )
     try:
         feed = feedparser.parse(feed_url)
@@ -129,7 +129,7 @@ def search_linkedin(query: str, search_type: str) -> list:
     url = (
         "https://www.linkedin.com/jobs-guest/jobs/api/seeMoreJobPostings/search"
         f"?keywords={encoded}&location=London%2C%20United%20Kingdom"
-        "&f_TPR=r86400&start=0"
+        "&f_TPR=r691200&start=0"
     )
     headers = {
         "User-Agent": (
@@ -249,7 +249,7 @@ def search_google(query: str, search_type: str) -> list:
         "cx": GOOGLE_CSE_ID,
         "q": full_query,
         "num": 10,
-        "dateRestrict": "d1",
+        "dateRestrict": "d8",
     }
     try:
         resp = requests.get(
