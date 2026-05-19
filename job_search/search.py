@@ -281,7 +281,6 @@ def collect_jobs() -> list:
     exact += search_indeed('"Corporate Development Associate"', "Exact")
     exact += search_linkedin("Corporate Development Associate", "Exact")
     exact += search_greenhouse(EXACT_KEYWORDS, "Exact")
-    exact += search_wellfound("Corporate Development Associate", "Exact")
     exact += search_google('"Corporate Development Associate"', "Exact")
 
     wide = []
@@ -292,7 +291,6 @@ def collect_jobs() -> list:
         "Investment Banking Structured Finance Capital Markets", "Wide"
     )
     wide += search_greenhouse(WIDE_KEYWORDS, "Wide")
-    wide += search_wellfound("Investment Banking London", "Wide")
     wide += search_google('"Investment Banking" OR "Structured Finance" OR "Capital Markets"', "Wide")
 
     return exact + wide
