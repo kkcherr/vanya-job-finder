@@ -18,6 +18,7 @@ TELEGRAM_CHAT_ID = os.environ["TELEGRAM_CHAT_ID"]
 GOOGLE_API_KEY = os.environ.get("GOOGLE_API_KEY", "")
 GOOGLE_CSE_ID = os.environ.get("GOOGLE_CSE_ID", "")
 REED_API_KEY = os.environ.get("REED_API_KEY", "")
+BRAVE_API_KEY = os.environ.get("BRAVE_API_KEY", "")
 SEEN_JOBS_FILE = "job_search/seen_jobs.json"
 MAX_SEEN_JOBS = 2000
 
@@ -38,13 +39,25 @@ WIDE_KEYWORDS = [
     "capital markets", "corporate finance", "m&a",
 ]
 
-# Title must contain at least one of these words to pass the relevance filter
+# Job title must contain at least one of these specific finance phrases
 TITLE_MUST_CONTAIN = [
-    "corporate development", "investment banking", "investment bank",
-    "structured finance", "capital markets", "m&a", "mergers",
-    "acquisitions", "private equity", "corporate finance",
-    "financial analyst", "finance analyst", "associate",
-    "vp finance", "vice president finance", "deal", "transaction",
+    "corporate development",
+    "investment banking",
+    "investment bank",
+    "structured finance",
+    "capital markets",
+    "leveraged finance",
+    "debt capital",
+    "equity capital",
+    "m&a",
+    "mergers and acquisitions",
+    "mergers & acquisitions",
+    "private equity",
+    "corporate finance",
+    "financial sponsor",
+    "deal origination",
+    "lbo",
+    "leveraged buyout",
 ]
 
 DAYS_LOOKBACK = 8  # change to 1 for daily mode
@@ -278,43 +291,41 @@ def search_wellfound(query: str, search_type: str) -> list:
     return jobs
 
 
-def search_google(query: str, search_type: str) -> list:
-    if not GOOGLE_API_KEY or not GOOGLE_CSE_ID:
+def search_brave(query: str, search_type: str) -> list:
+    if not BRAVE_API_KEY:
         return []
     jobs = []
-    full_query = f"{query} London jobs"
+    freshness = "pd" if DAYS_LOOKBACK == 1 else "pw" if DAYS_LOOKBACK <= 7 else "pm"
     params = {
-        "key": GOOGLE_API_KEY,
-        "cx": GOOGLE_CSE_ID,
-        "q": full_query,
-        "num": 10,
-        "dateRestrict": f"d{DAYS_LOOKBACK}",
+        "q": f"{query} London job",
+        "count": 10,
+        "freshness": freshness,
+    }
+    headers = {
+        "Accept": "application/json",
+        "Accept-Encoding": "gzip",
+        "X-Subscription-Token": BRAVE_API_KEY,
     }
     try:
         resp = requests.get(
-            "https://www.googleapis.com/customsearch/v1",
+            "https://api.search.brave.com/res/v1/web/search",
             params=params,
+            headers=headers,
             timeout=15,
         )
         if not resp.ok:
-            print(f"[Google/{search_type}] Error {resp.status_code}: {resp.text[:500]}")
+            print(f"[Brave/{search_type}] Error {resp.status_code}: {resp.text[:300]}")
             return jobs
-        resp.raise_for_status()
-        items = resp.json().get("items", [])
-        for item in items:
+        for item in resp.json().get("web", {}).get("results", []):
             title = item.get("title", "")
-            url = item.get("link", "")
-            if not url:
+            url = item.get("url", "")
+            if not url or not _title_is_relevant(title):
                 continue
-            # Try to extract company from pagemap or snippet
-            pagemap = item.get("pagemap", {})
-            metatags = pagemap.get("metatags", [{}])
-            site_name = metatags[0].get("og:site_name", "") if metatags else ""
-            company = site_name if site_name else url.split("/")[2].replace("www.", "")
-            jobs.append(Job(title, company, "London, UK", url, "Google", search_type))
+            domain = url.split("/")[2].replace("www.", "") if "/" in url else "Unknown"
+            jobs.append(Job(title, domain, "London, UK", url, "Brave", search_type))
     except Exception as e:
-        print(f"[Google/{search_type}] Error: {e}")
-    print(f"[Google/{search_type}] {len(jobs)} jobs")
+        print(f"[Brave/{search_type}] Error: {e}")
+    print(f"[Brave/{search_type}] {len(jobs)} jobs")
     return jobs
 
 
@@ -323,7 +334,7 @@ def collect_jobs() -> list:
     exact += search_reed("Corporate Development Associate", "Exact")
     exact += search_linkedin("Corporate Development Associate", "Exact")
     exact += search_greenhouse(EXACT_KEYWORDS, "Exact")
-    exact += search_google('"Corporate Development Associate"', "Exact")
+    exact += search_brave('"Corporate Development Associate"', "Exact")
 
     wide = []
     wide += search_reed("Investment Banking Associate", "Wide")
@@ -333,7 +344,7 @@ def collect_jobs() -> list:
         "Investment Banking Structured Finance Capital Markets", "Wide"
     )
     wide += search_greenhouse(WIDE_KEYWORDS, "Wide")
-    wide += search_google('"Investment Banking" OR "Structured Finance" OR "Capital Markets"', "Wide")
+    wide += search_brave('"Investment Banking" OR "Structured Finance" OR "Capital Markets"', "Wide")
 
     return exact + wide
 
@@ -368,7 +379,7 @@ def main() -> None:
             print(f"Send failed for '{job.title}': {e}")
         finally:
             seen.add(job.job_id)
-        time.sleep(0.5)
+        time.sleep(2)
 
     save_seen_jobs(seen)
     print("Done.")
