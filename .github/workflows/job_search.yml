@@ -2,7 +2,7 @@ name: Daily Job Search
 
 on:
   schedule:
-    # 7 AM UTC = 8 AM London (BST summer) / 7 AM (GMT winter)
+    # 7 AM UTC = 8 AM UK time (BST, Mar-Oct) / 7 AM UK time (GMT, Nov-Mar)
     - cron: "0 7 * * *"
   workflow_dispatch: # allow manual trigger from the Actions tab
 
