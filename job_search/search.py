@@ -102,35 +102,27 @@ def send_telegram(text: str) -> None:
 def search_indeed(query: str, search_type: str) -> list:
     jobs = []
     encoded = urllib.parse.quote(query)
-    url = (
-        f"https://www.indeed.co.uk/jobs?q={encoded}"
-        "&l=London&sort=date&fromage=8"
+    feed_url = (
+        f"https://www.indeed.co.uk/rss?q={encoded}"
+        "&l=London&sort=date&fromage=8&radius=10"
     )
     headers = {
         "User-Agent": (
             "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
             "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
         ),
-        "Accept-Language": "en-GB,en;q=0.9",
     }
     try:
-        resp = requests.get(url, headers=headers, timeout=20)
-        resp.raise_for_status()
-        soup = BeautifulSoup(resp.text, "html.parser")
-        for card in soup.find_all("div", class_="job_seen_beacon"):
-            try:
-                title_el = card.find("h2", class_="jobTitle")
-                company_el = card.find("span", {"data-testid": "company-name"})
-                link_el = card.find("a", id=lambda x: x and x.startswith("job_"))
-                if not title_el or not link_el:
-                    continue
-                title = title_el.get_text(strip=True).replace("new", "").strip()
-                company = company_el.get_text(strip=True) if company_el else "Unknown"
-                href = link_el.get("href", "")
-                full_url = f"https://www.indeed.co.uk{href}" if href.startswith("/") else href
-                jobs.append(Job(title, company, "London, UK", full_url, "Indeed", search_type))
-            except Exception:
+        feed = feedparser.parse(feed_url, request_headers=headers)
+        for entry in feed.entries:
+            raw_title = entry.get("title", "")
+            parts = raw_title.rsplit(" - ", 1)
+            title = parts[0].strip() if len(parts) == 2 else raw_title.strip()
+            company = parts[1].strip() if len(parts) == 2 else "Unknown"
+            link = entry.get("link", "")
+            if not link:
                 continue
+            jobs.append(Job(title, company, "London, UK", link, "Indeed", search_type))
     except Exception as e:
         print(f"[Indeed/{search_type}] Error: {e}")
     print(f"[Indeed/{search_type}] {len(jobs)} jobs")
@@ -298,9 +290,9 @@ def collect_jobs() -> list:
     exact += search_google('"Corporate Development Associate"', "Exact")
 
     wide = []
-    wide += search_indeed(
-        '"Investment Banking" OR "Structured Finance" OR "Capital Markets"', "Wide"
-    )
+    wide += search_indeed("Investment Banking London", "Wide")
+    wide += search_indeed("Structured Finance London", "Wide")
+    wide += search_indeed("Capital Markets Associate London", "Wide")
     wide += search_linkedin(
         "Investment Banking Structured Finance Capital Markets", "Wide"
     )
