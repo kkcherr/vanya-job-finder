@@ -20,6 +20,30 @@ TAVILY_API_KEY = os.environ.get("TAVILY_API_KEY", "")
 SEEN_JOBS_FILE = "job_search/seen_jobs.json"
 MAX_SEEN_JOBS = 2000
 
+# Domains Tavily is restricted to — job boards and career pages only
+TAVILY_DOMAINS = [
+    "linkedin.com", "indeed.co.uk", "boards.greenhouse.io", "wellfound.com",
+    "jobs.lever.co", "workable.com", "smartrecruiters.com",
+    "goldmansachs.com", "careers.jpmorgan.com", "morganstanley.com",
+    "careers.bankofamerica.com", "jobs.citi.com", "db.com", "ubs.com",
+    "lazard.com", "rothschildandco.com", "evercore.com", "moelis.com",
+    "jefferies.com", "pwpartners.com", "hl.com", "berenberg.com",
+    "hsbc.com", "lloydsbankinggroup.com", "jobs.natwestgroup.com",
+    "standardchartered.com", "barclays.com", "investec.com",
+    "blackstone.com", "kkr.com", "carlyle.com", "apollo.com",
+    "warburgpincus.com", "apax.com", "permira.com", "bridgepoint.eu",
+    "generalatlantic.com", "3i.com", "macquarie.com",
+    "careers.blackrock.com", "schroders.com", "man.com",
+    "nomura.com", "mizuhogroup.com", "smbcgroup.com",
+    "careers.google.com", "metacareers.com", "careers.microsoft.com",
+    "amazon.jobs", "databricks.com", "palantir.com",
+    "jobs.nvidia.com", "careers.arm.com", "careers.amd.com",
+    "revolut.com", "starlingbank.com", "wise.com",
+    "careers.equinix.com", "careers.digitalrealty.com",
+    "reed.co.uk", "totaljobs.com", "cityfalcon.com",
+    "efinancialcareers.com", "efinancialcareers.co.uk",
+]
+
 # Companies known to use Greenhouse — corp dev, finance, and tech firms in London
 GREENHOUSE_COMPANIES = [
     "stripe", "palantir", "figma", "checkout",
@@ -302,6 +326,7 @@ def search_tavily(query: str, search_type: str) -> list:
                 "search_depth": "basic",
                 "max_results": 10,
                 "days": DAYS_LOOKBACK,
+                "include_domains": TAVILY_DOMAINS,
             },
             timeout=20,
         )
