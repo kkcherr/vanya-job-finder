@@ -268,6 +268,9 @@ def search_google(query: str, search_type: str) -> list:
             params=params,
             timeout=15,
         )
+        if not resp.ok:
+            print(f"[Google/{search_type}] Error {resp.status_code}: {resp.text[:500]}")
+            return jobs
         resp.raise_for_status()
         items = resp.json().get("items", [])
         for item in items:
