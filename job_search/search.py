@@ -14,6 +14,8 @@ from bs4 import BeautifulSoup
 
 TELEGRAM_TOKEN = os.environ["TELEGRAM_BOT_TOKEN"]
 TELEGRAM_CHAT_ID = os.environ["TELEGRAM_CHAT_ID"]
+GOOGLE_API_KEY = os.environ.get("GOOGLE_API_KEY", "")
+GOOGLE_CSE_ID = os.environ.get("GOOGLE_CSE_ID", "")
 SEEN_JOBS_FILE = "job_search/seen_jobs.json"
 MAX_SEEN_JOBS = 2000
 
@@ -237,12 +239,50 @@ def search_wellfound(query: str, search_type: str) -> list:
     return jobs
 
 
+def search_google(query: str, search_type: str) -> list:
+    if not GOOGLE_API_KEY or not GOOGLE_CSE_ID:
+        return []
+    jobs = []
+    full_query = f"{query} London jobs"
+    params = {
+        "key": GOOGLE_API_KEY,
+        "cx": GOOGLE_CSE_ID,
+        "q": full_query,
+        "num": 10,
+        "dateRestrict": "d1",
+    }
+    try:
+        resp = requests.get(
+            "https://www.googleapis.com/customsearch/v1",
+            params=params,
+            timeout=15,
+        )
+        resp.raise_for_status()
+        items = resp.json().get("items", [])
+        for item in items:
+            title = item.get("title", "")
+            url = item.get("link", "")
+            if not url:
+                continue
+            # Try to extract company from pagemap or snippet
+            pagemap = item.get("pagemap", {})
+            metatags = pagemap.get("metatags", [{}])
+            site_name = metatags[0].get("og:site_name", "") if metatags else ""
+            company = site_name if site_name else url.split("/")[2].replace("www.", "")
+            jobs.append(Job(title, company, "London, UK", url, "Google", search_type))
+    except Exception as e:
+        print(f"[Google/{search_type}] Error: {e}")
+    print(f"[Google/{search_type}] {len(jobs)} jobs")
+    return jobs
+
+
 def collect_jobs() -> list:
     exact = []
     exact += search_indeed('"Corporate Development Associate"', "Exact")
     exact += search_linkedin("Corporate Development Associate", "Exact")
     exact += search_greenhouse(EXACT_KEYWORDS, "Exact")
     exact += search_wellfound("Corporate Development Associate", "Exact")
+    exact += search_google('"Corporate Development Associate"', "Exact")
 
     wide = []
     wide += search_indeed(
@@ -253,6 +293,7 @@ def collect_jobs() -> list:
     )
     wide += search_greenhouse(WIDE_KEYWORDS, "Wide")
     wide += search_wellfound("Investment Banking London", "Wide")
+    wide += search_google('"Investment Banking" OR "Structured Finance" OR "Capital Markets"', "Wide")
 
     return exact + wide
 
