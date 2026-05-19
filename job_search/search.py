@@ -7,6 +7,7 @@ import os
 import time
 import urllib.parse
 from dataclasses import dataclass
+from datetime import datetime, timedelta, timezone
 
 import feedparser
 import requests
@@ -36,6 +37,17 @@ WIDE_KEYWORDS = [
     "investment banking", "structured finance",
     "capital markets", "corporate finance", "m&a",
 ]
+
+# Title must contain at least one of these words to pass the relevance filter
+TITLE_MUST_CONTAIN = [
+    "corporate development", "investment banking", "investment bank",
+    "structured finance", "capital markets", "m&a", "mergers",
+    "acquisitions", "private equity", "corporate finance",
+    "financial analyst", "finance analyst", "associate",
+    "vp finance", "vice president finance", "deal", "transaction",
+]
+
+DAYS_LOOKBACK = 8  # change to 1 for daily mode
 
 
 @dataclass
@@ -100,15 +112,20 @@ def send_telegram(text: str) -> None:
     resp.raise_for_status()
 
 
+def _title_is_relevant(title: str) -> bool:
+    t = title.lower()
+    return any(kw in t for kw in TITLE_MUST_CONTAIN)
+
+
 def search_reed(query: str, search_type: str) -> list:
     if not REED_API_KEY:
         return []
     jobs = []
+    cutoff = datetime.now(timezone.utc) - timedelta(days=DAYS_LOOKBACK)
     params = {
         "keywords": query,
         "locationName": "London",
         "distancefromLocation": 10,
-        "postedByRecruitmentAgency": False,
         "resultsToTake": 100,
     }
     try:
@@ -120,8 +137,19 @@ def search_reed(query: str, search_type: str) -> list:
         )
         resp.raise_for_status()
         for job in resp.json().get("results", []):
+            title = job.get("jobTitle", "")
+            if not _title_is_relevant(title):
+                continue
+            # Filter by date — Reed returns date as "dd/mm/yyyy hh:mm:ss"
+            date_str = job.get("date", "")
+            try:
+                posted = datetime.strptime(date_str[:10], "%d/%m/%Y").replace(tzinfo=timezone.utc)
+                if posted < cutoff:
+                    continue
+            except Exception:
+                pass  # if date unparseable, include the job
             jobs.append(Job(
-                title=job.get("jobTitle", ""),
+                title=title,
                 company=job.get("employerName", "Unknown"),
                 location=job.get("locationName", "London"),
                 url=f"https://www.reed.co.uk/jobs/{job.get('jobId', '')}",
@@ -140,7 +168,7 @@ def search_linkedin(query: str, search_type: str) -> list:
     url = (
         "https://www.linkedin.com/jobs-guest/jobs/api/seeMoreJobPostings/search"
         f"?keywords={encoded}&location=London%2C%20United%20Kingdom"
-        "&f_TPR=r691200&start=0"
+        f"&f_TPR=r{DAYS_LOOKBACK * 86400}&start=0"
     )
     headers = {
         "User-Agent": (
@@ -260,7 +288,7 @@ def search_google(query: str, search_type: str) -> list:
         "cx": GOOGLE_CSE_ID,
         "q": full_query,
         "num": 10,
-        "dateRestrict": "d8",
+        "dateRestrict": f"d{DAYS_LOOKBACK}",
     }
     try:
         resp = requests.get(
