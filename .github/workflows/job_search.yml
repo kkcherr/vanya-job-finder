@@ -9,11 +9,12 @@ on:
 permissions:
   contents: write
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   search:
     runs-on: ubuntu-latest
-    env:
-      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
     steps:
       - name: Checkout repository
@@ -43,4 +44,4 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add job_search/seen_jobs.json
           git diff --cached --quiet || git commit -m "chore: update seen jobs [skip ci]"
-          git push
+          git push origin HEAD:main
