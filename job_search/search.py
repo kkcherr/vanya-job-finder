@@ -16,6 +16,7 @@ TELEGRAM_TOKEN = os.environ["TELEGRAM_BOT_TOKEN"]
 TELEGRAM_CHAT_ID = os.environ["TELEGRAM_CHAT_ID"]
 GOOGLE_API_KEY = os.environ.get("GOOGLE_API_KEY", "")
 GOOGLE_CSE_ID = os.environ.get("GOOGLE_CSE_ID", "")
+REED_API_KEY = os.environ.get("REED_API_KEY", "")
 SEEN_JOBS_FILE = "job_search/seen_jobs.json"
 MAX_SEEN_JOBS = 2000
 
@@ -99,33 +100,37 @@ def send_telegram(text: str) -> None:
     resp.raise_for_status()
 
 
-def search_indeed(query: str, search_type: str) -> list:
+def search_reed(query: str, search_type: str) -> list:
+    if not REED_API_KEY:
+        return []
     jobs = []
-    encoded = urllib.parse.quote(query)
-    feed_url = (
-        f"https://www.indeed.co.uk/rss?q={encoded}"
-        "&l=London&sort=date&fromage=8&radius=10"
-    )
-    headers = {
-        "User-Agent": (
-            "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
-            "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-        ),
+    params = {
+        "keywords": query,
+        "locationName": "London",
+        "distancefromLocation": 10,
+        "postedByRecruitmentAgency": False,
+        "resultsToTake": 100,
     }
     try:
-        feed = feedparser.parse(feed_url, request_headers=headers)
-        for entry in feed.entries:
-            raw_title = entry.get("title", "")
-            parts = raw_title.rsplit(" - ", 1)
-            title = parts[0].strip() if len(parts) == 2 else raw_title.strip()
-            company = parts[1].strip() if len(parts) == 2 else "Unknown"
-            link = entry.get("link", "")
-            if not link:
-                continue
-            jobs.append(Job(title, company, "London, UK", link, "Indeed", search_type))
+        resp = requests.get(
+            "https://www.reed.co.uk/api/1.0/search",
+            params=params,
+            auth=(REED_API_KEY, ""),
+            timeout=15,
+        )
+        resp.raise_for_status()
+        for job in resp.json().get("results", []):
+            jobs.append(Job(
+                title=job.get("jobTitle", ""),
+                company=job.get("employerName", "Unknown"),
+                location=job.get("locationName", "London"),
+                url=f"https://www.reed.co.uk/jobs/{job.get('jobId', '')}",
+                source="Reed",
+                search_type=search_type,
+            ))
     except Exception as e:
-        print(f"[Indeed/{search_type}] Error: {e}")
-    print(f"[Indeed/{search_type}] {len(jobs)} jobs")
+        print(f"[Reed/{search_type}] Error: {e}")
+    print(f"[Reed/{search_type}] {len(jobs)} jobs")
     return jobs
 
 
@@ -284,15 +289,15 @@ def search_google(query: str, search_type: str) -> list:
 
 def collect_jobs() -> list:
     exact = []
-    exact += search_indeed('"Corporate Development Associate"', "Exact")
+    exact += search_reed("Corporate Development Associate", "Exact")
     exact += search_linkedin("Corporate Development Associate", "Exact")
     exact += search_greenhouse(EXACT_KEYWORDS, "Exact")
     exact += search_google('"Corporate Development Associate"', "Exact")
 
     wide = []
-    wide += search_indeed("Investment Banking London", "Wide")
-    wide += search_indeed("Structured Finance London", "Wide")
-    wide += search_indeed("Capital Markets Associate London", "Wide")
+    wide += search_reed("Investment Banking Associate", "Wide")
+    wide += search_reed("Structured Finance London", "Wide")
+    wide += search_reed("Capital Markets Associate", "Wide")
     wide += search_linkedin(
         "Investment Banking Structured Finance Capital Markets", "Wide"
     )
