@@ -2,8 +2,8 @@ name: Daily Job Search
 
 on:
   schedule:
-    # 7 AM UTC = 8 AM UK time (BST, Mar-Oct) / 7 AM UK time (GMT, Nov-Mar)
-    - cron: "0 7 * * *"
+    # 10 AM UTC = 11 AM UK time (BST, Mar-Oct) / 10 AM UK time (GMT, Nov-Mar)
+    - cron: "0 10 * * *"
   workflow_dispatch: # allow manual trigger from the Actions tab
 
 permissions:
