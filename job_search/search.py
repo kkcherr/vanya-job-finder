@@ -84,6 +84,28 @@ TITLE_MUST_CONTAIN = [
 
 DAYS_LOOKBACK = 7  # change to 1 for daily mode
 
+PRIORITY_COMPANIES = [
+    "mufg", "mitsubishi ufj",
+    "smbc", "sumitomo mitsui",
+    "mizuho",
+    "credit agricole", "crédit agricole", "cacib",
+    "bnp paribas", "bnp",
+    "société générale", "societe generale", "socgen",
+    "goldman sachs", "goldman",
+    "bank of america", "bofa", "merrill lynch",
+    "citi", "citibank", "citigroup",
+    "jpmorgan", "jp morgan", "j.p. morgan",
+    "ing",
+    "rabobank",
+    "abn amro", "abn-amro",
+    "santander",
+    "deutsche bank",
+    "intesa sanpaolo", "intesa",
+    "bbva",
+    "macquarie",
+    "monzo",
+    "revolut",
+]
 
 @dataclass
 class Job:
@@ -98,9 +120,15 @@ class Job:
     def job_id(self) -> str:
         return hashlib.md5(self.url.encode()).hexdigest()
 
+    @property
+    def is_priority(self) -> bool:
+        c = self.company.lower()
+        return any(p in c for p in PRIORITY_COMPANIES)
+
     def telegram_text(self) -> str:
         label = f"{self.source} · {self.search_type}"
-        title = _esc(self.title)
+        prefix = "PRIORITY | " if self.is_priority else ""
+        title = _esc(f"{prefix}{self.title}")
         company = _esc(self.company)
         location = _esc(self.location)
         label = _esc(label)
@@ -372,13 +400,20 @@ def main() -> None:
         seen_this_run.add(job.job_id)
         new_jobs.append(job)
 
-    print(f"New jobs to send: {len(new_jobs)}")
+    # Priority companies first, then the rest
+    new_jobs.sort(key=lambda j: (0 if j.is_priority else 1, j.title))
+
+    priority_count = sum(1 for j in new_jobs if j.is_priority)
+    print(f"New jobs to send: {len(new_jobs)} ({priority_count} priority)")
 
     if not new_jobs:
         print("No new jobs today.")
         return
 
-    send_telegram(_esc(f"Job search: {len(new_jobs)} new listing(s) found today."))
+    summary = f"Job search: {len(new_jobs)} new listing(s)"
+    if priority_count:
+        summary += f", {priority_count} from priority banks"
+    send_telegram(_esc(summary))
     time.sleep(0.5)
 
     for job in new_jobs:
