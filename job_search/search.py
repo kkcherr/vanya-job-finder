@@ -82,7 +82,7 @@ TITLE_MUST_CONTAIN = [
     "leveraged buyout",
 ]
 
-DAYS_LOOKBACK = 1  # jobs posted in the last day
+DAYS_LOOKBACK = 2  # covers full previous calendar day regardless of run time
 
 PRIORITY_COMPANIES = [
     "mufg", "mitsubishi ufj",
