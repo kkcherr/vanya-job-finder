@@ -348,20 +348,12 @@ def search_tavily(query: str, search_type: str) -> list:
 
 def collect_jobs() -> list:
     exact = []
-    exact += search_reed("Corporate Development Associate", "Exact")
     exact += search_linkedin("Corporate Development Associate", "Exact")
-    exact += search_greenhouse(EXACT_KEYWORDS, "Exact")
-    exact += search_tavily('"Corporate Development Associate"', "Exact")
 
     wide = []
-    wide += search_reed("Investment Banking Associate", "Wide")
-    wide += search_reed("Structured Finance London", "Wide")
-    wide += search_reed("Capital Markets Associate", "Wide")
     wide += search_linkedin(
         "Investment Banking Structured Finance Capital Markets", "Wide"
     )
-    wide += search_greenhouse(WIDE_KEYWORDS, "Wide")
-    wide += search_tavily('"Investment Banking" OR "Structured Finance" OR "Capital Markets"', "Wide")
 
     return exact + wide
 
